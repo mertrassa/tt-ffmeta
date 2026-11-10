@@ -132,13 +132,25 @@ module tt_um_mertrassa_ffmeta (
     end
 
     // -------------------------------------------------------- event detection
-    // l, e2, xa2, xb2 change on the falling edge of clk_core.
-    wire l_sel  = l[dut];
-    wire e2_sel = e2[dut];
+    // l, e2, xa2, xb2 change on the falling edge of clk_core.  They are first
+    // re-registered on the rising edge, so that the only half-cycle paths are
+    // flop to flop; the multiplexer and the XORs then have a full cycle.
+    // (With the logic in the half-cycle path, sign-off timing limited the
+    // DUT clock period to about 5.4 ns.)
+    reg [7:0] l_q, e2_q;
+    reg       xa_q, xb_q;
+    always @(posedge clk_core) begin
+        l_q  <= l;
+        e2_q <= e2;
+        xa_q <= xa2;
+        xb_q <= xb2;
+    end
+    wire l_sel  = l_q[dut];
+    wire e2_sel = e2_q[dut];
     reg  s_meta, s_cal, s_l, s_tr;
     always @(posedge clk_core) begin
         s_meta <= l_sel ^ e2_sel;
-        s_cal  <= xa2 ^ xb2;
+        s_cal  <= xa_q ^ xb_q;
         s_l    <= l_sel;
         s_tr   <= l_sel ^ s_l;
     end

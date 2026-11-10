@@ -33,6 +33,13 @@ set_clock_groups -asynchronous \
     -group [get_clocks data]
 
 set_clock_uncertainty 0.25 [all_clocks]
+# The on-chip clocks are not built by clock tree synthesis: each domain is one
+# hand-instantiated buffer driving a handful of flip-flops, and the skew of
+# those nets is already in the extracted, propagated clock arrival times.  A
+# 0.25 ns hold margin on top is not something the flow can meet here (the core
+# has no clocks during place and route, so no hold buffers are inserted), and
+# it flagged direct flop-to-flop paths with 0.22 ns of real slack.
+set_clock_uncertainty -hold 0.10 [get_clocks {core early data}]
 set_clock_transition 0.15 [all_clocks]
 set_propagated_clock [all_clocks]
 
