@@ -145,15 +145,15 @@ module tb_ffmeta;
         @(negedge clk); ui_in[4] = 1'b0;
         rd8(4'd13, b); check(b === 8'h5A, "write ignored outside 12..15");
 
-        // ---- 2. counters, core clocked from the reference clock
+        // ---- 2. counters, core clocked from the reference clock / 2
         f_clk = 0; f_ev0 = 3; f_ev1 = 3; f_asel = 0;
         apply_cfg;
         measure(1000);
         $display("# selftest ev0=%0d ev1=%0d a=%0d ref=%0d", n_ev0, n_ev1, n_a, n_ref);
         check(n_ref >= 998 && n_ref <= 1002, "REF counts reference cycles");
-        check(n_ev0 >= 997 && n_ev0 <= 1003, "EV0 counts core cycles");
+        check(n_ev0 >= 497 && n_ev0 <= 503,  "EV0 counts core cycles");
         check(n_ev1 == n_ev0,                "EV1 equals EV0");
-        check(n_a   >= 997 && n_a   <= 1003, "A counts core cycles");
+        check(n_a   >= 497 && n_a   <= 503,  "A counts core cycles");
         // with a static data input nothing may be counted as an event
         f_ev0 = 0; f_ev1 = 1; f_k = 5;
         apply_cfg;

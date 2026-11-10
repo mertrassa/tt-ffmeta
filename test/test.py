@@ -3,7 +3,7 @@
 # Tiny Tapeout cocotb test for tt_um_mertrassa_ffmeta.
 #
 # Functional test only: registers, counters and event detection with the core
-# clocked from the reference clock, so it also runs on the gate-level netlist
+# clocked from the reference clock / 2, so it also runs on the gate-level netlist
 # (unit delays, ring oscillators left disabled).  The timing experiment itself
 # is exercised by tb_ffmeta.v / run_sweep.sh with the behavioural cell models.
 
@@ -96,36 +96,36 @@ async def test_project(dut):
         assert await host.read(12 + idx) == value
     assert int(dut.uio_oe.value) == 0
 
-    dut._log.info("Counters count reference cycles")
+    dut._log.info("Counters: core runs at half the reference frequency")
     await host.config(ev0=3, ev1=3, a_sel=0)
     ev0, ev1, a, ref = await host.measure(200)
     dut._log.info(f"ev0={ev0} ev1={ev1} a={a} ref={ref}")
     assert 197 <= ref <= 203
-    assert 196 <= ev0 <= 204 and ev1 == ev0
-    assert 196 <= a <= 204
+    assert 97 <= ev0 <= 103 and ev1 == ev0
+    assert 97 <= a <= 103
 
     dut._log.info("Event detection with slow, well-timed data")
     # EV0 = output transitions of DUT 3, EV1 = twin-sampler disagreements.
     await host.config(dut=3, ev0=2, ev1=1, a_sel=0)
-    tr, cal, a, ref = await host.measure(300, toggle_every=3)
+    tr, cal, a, ref = await host.measure(300, toggle_every=6)
     dut._log.info(f"transitions={tr} cal={cal} cycles={a}")
-    assert 90 <= tr <= 110     # one output change per data edge
+    assert 45 <= tr <= 55      # one output change per data edge
     assert cal == 0            # no data edge between the two sampling clocks
 
     # EV0 = late transitions.  With the longest sampling delay (k = 31) the
     # DUT output has long settled when the early sampler looks: no events.
     await host.config(dut=3, k=31, ev0=0, ev1=3, a_sel=0)
-    meta, cyc, a, ref = await host.measure(300, toggle_every=3)
+    meta, cyc, a, ref = await host.measure(300, toggle_every=6)
     dut._log.info(f"k=31: meta={meta} cycles={cyc}")
     assert meta == 0
-    assert 296 <= cyc <= 304
+    assert 146 <= cyc <= 154
 
     # With the DUT clock delayed instead (k = 0, j = 7) the early sampler
     # looks before the DUT has switched: every output change is "late".
     await host.config(dut=3, k=0, j=7, ev0=0, ev1=3, a_sel=0)
-    meta, cyc, a, ref = await host.measure(300, toggle_every=3)
+    meta, cyc, a, ref = await host.measure(300, toggle_every=6)
     dut._log.info(f"k=0 j=7: meta={meta} cycles={cyc}")
-    assert 90 <= meta <= 110
+    assert 45 <= meta <= 55
 
     dut._log.info("Clear")
     await host.set_ctrl(CLEAR, True)

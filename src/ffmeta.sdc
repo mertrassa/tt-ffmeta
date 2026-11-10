@@ -8,10 +8,10 @@
 #
 # Clocks
 #   clk    reference clock from the pad (crystal derived, <= 50 MHz)
-#   core   root of the DUT clock: RO_C, clk or ui_in[6] behind a multiplexer
+#   core   root of the DUT clock: RO_C, clk / 2 or ui_in[6] behind a multiplexer
 #   early  swept sampling clock (output of the coarse delay line), also the
 #          calibration ring
-#   data   asynchronous data source: RO_D, RO_D/2, ui_in[6] or clk
+#   data   asynchronous data source: RO_D, RO_D/2, ui_in[6] or clk / 2
 #
 # "early" is derived from "core" through the programmable delay line, but the
 # delay between them is exactly what the experiment sweeps, so the two are

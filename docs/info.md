@@ -31,7 +31,7 @@ cycles with such an event falls as `(T_w / H) * exp(-t / tau)`, where `H` is the
 period, so a sweep of `t` gives tau from the slope and T_w from the intercept.
 
 **Clock and data** come from two on-chip ring oscillators (lengths selectable), from the
-`clk` pin, or from `ui_in[6]`.
+reference clock divided by two, or from `ui_in[6]`.
 
 **Sampling delay.** `t` is the difference of two tapped inverter lines: a 32-tap coarse
 line in the early sampling clock (`k`, about 0.1 ns per tap) and an 8-tap vernier line
@@ -71,11 +71,11 @@ high across one rising edge of `clk`.
 | field | meaning |
 |-------|---------|
 | `ev0_sel`, `ev1_sel` | 0 late transition of the selected DUT, 1 twin samplers disagree, 2 DUT output changed, 3 every cycle |
-| `clk_sel` | DUT clock: 0 `clk`, 1 RO_C, 2 `ui_in[6]`, 3 off |
+| `clk_sel` | DUT clock: 0 `clk / 2`, 1 RO_C, 2 `ui_in[6]`, 3 off |
 | `roc_len` | RO_C stages: 0 = 75, 1 = 55, 2 = 41, 3 = 31 |
-| `dat_sel` | data: 0 `ui_in[6]`, 1 RO_D, 2 RO_D / 2, 3 `clk` |
+| `dat_sel` | data: 0 `ui_in[6]`, 1 RO_D, 2 RO_D / 2, 3 `clk / 2` |
 | `rod_len` | RO_D stages: 0 = 67, 1 = 47 |
-| `a_sel` | clock counted by `A`: 0 DUT clock, 1 data, 2 early clock / calibration ring, 3 `clk` |
+| `a_sel` | clock counted by `A`: 0 DUT clock, 1 data, 2 early clock / calibration ring, 3 `clk / 2` |
 | `ring_en` | close the coarse delay line into a ring |
 
 Change oscillator lengths, taps and `ring_en` only while the oscillators are disabled
@@ -87,8 +87,9 @@ circulating can leave it running in a harmonic mode.
 1. Select the project, apply a 10 MHz clock and reset.
 2. Write `0xA5` to address 12 and read it back.
 3. Self-test: `cfg1 = 0x78` (both event counters count every cycle), pulse `CLEAR`, hold
-   `GATE` high for a known time, then read `EV0`, `A` and `REF`: all three equal the
-   number of clock cycles in the gate.
+   `GATE` high for a known time, then read `EV0`, `A` and `REF`: `REF` is the number of
+   clock cycles in the gate, `EV0` and `A` are half of it (after reset the experiment
+   runs from `clk / 2`).
 4. Enable the oscillators (`cfg3 = 0x03`), select RO_C as DUT clock and RO_D / 2 as data
    (`cfg2 = 0x25`), select a DUT, `EV0` = late transitions and `EV1` = twin samplers
    (`cfg1 = 0x20 | dut`), then step `k` and `j` through `cfg0`, counting for 10 ms to 10 s

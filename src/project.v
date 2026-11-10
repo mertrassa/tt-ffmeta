@@ -2,7 +2,12 @@
  * tt_um_mertrassa_ffmeta - flip-flop metastability characterisation for sky130_fd_sc_hd
  *
  * Pins
- *   clk          reference clock (crystal derived), also clocks the registers
+ *   clk          reference clock (crystal derived), also clocks the registers.
+ *                Where the experiment can use the reference as a source it
+ *                uses clk / 2 from a flip-flop ("ref_div"): the clk net must
+ *                end at register clock pins only, because clock tree
+ *                synthesis follows it through every combinational cell and
+ *                would otherwise rebuild (and loop in) the experiment core.
  *   ui_in[3:0]   address: selects the byte on uo_out; 12..15 = config regs
  *   ui_in[4]     write strobe: on a rising clk edge, cfg[addr] <= uio_in
  *                (only for addr 12..15)
@@ -89,9 +94,16 @@ module tt_um_mertrassa_ffmeta (
     wire [7:0] l, e2;
     wire       xa2, xb2;
     reg        rod_div;
+    reg        ref_div;
+
+    // reference clock / 2: the only way the reference enters the experiment
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) ref_div <= 1'b0;
+        else        ref_div <= ~ref_div;
+    end
 
     ffm_core mx_core (
-        .clk_ext  (clk),
+        .clk_ext  (ref_div),
         .ext_async(ext_async),
         .rod_div  (rod_div),
         .clk_sel  (clk_sel),
@@ -140,7 +152,7 @@ module tt_um_mertrassa_ffmeta (
     /* verilator lint_off UNOPTFLAT */
     wire a_clk = (a_sel == 2'd0) ? clk_core  :
                  (a_sel == 2'd1) ? dat       :
-                 (a_sel == 2'd2) ? clk_early : clk;
+                 (a_sel == 2'd2) ? clk_early : ref_div;
     /* verilator lint_on UNOPTFLAT */
 
     ffm_counter #(.W(24)) u_ev0 (.clk(clk_core), .arst(arst), .gate(gate), .inc(inc0), .q(cnt_ev0));

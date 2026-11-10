@@ -154,7 +154,8 @@ class Chip:
         self.apply(k=0, j=0, dut=0, ev0=EV_ONE, ev1=EV_ONE, ring=0, clk_sel=0, roc_len=0,
                    dat_sel=0, rod_len=0, roc_en=0, rod_en=0, a_sel=A_CORE)
         ev0, ev1, a, ref = self.gate(0.05)
-        assert abs(ev0 - ref) <= 3 and abs(a - ref) <= 3 and ev1 == ev0, (ev0, ev1, a, ref)
+        # with clk_sel = 0 the core runs at exactly half the reference frequency
+        assert abs(2 * ev0 - ref) <= 6 and abs(2 * a - ref) <= 6 and ev1 == ev0, (ev0, ev1, a, ref)
         assert abs(ref - 0.05 * self.f_ref) < 0.02 * self.f_ref, ref
         print("# selftest ok: ev0=%d a=%d ref=%d" % (ev0, a, ref))
 

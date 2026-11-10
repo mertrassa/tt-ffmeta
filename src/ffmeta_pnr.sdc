@@ -1,25 +1,22 @@
 # Place-and-route constraints for tt_um_mertrassa_ffmeta.
 #
-# Only the reference clock exists here.  The source multiplexers of the
-# experiment core are held, by case analysis, in the setting where no clock
-# reaches the core (clock root = constant, data = ui_in[6]).  The core is
+# Only the reference clock exists here, and in the netlist the clk net ends
+# at register clock pins only: the experiment core receives the reference
+# through a divide-by-two flip-flop (ref_div in project.v).  The core is
 # therefore not part of any clock network during place and route, and clock
-# tree synthesis and clock-inverter repair leave its hand-built delay lines,
-# ring oscillators and clock drivers alone.  (Those steps do not honour
-# RSZ_DONT_TOUCH_RX; in the first attempt CTS tried to buffer the delay lines
-# and crashed on the calibration ring.)
+# tree synthesis leaves its hand-built delay lines, ring oscillators and
+# clock drivers alone.
+#
+# Both halves of that are needed.  CTS does not honour RSZ_DONT_TOUCH_RX: with
+# the core clocks declared it buffered the delay lines, and with clk wired
+# straight into the source multiplexers its latency balancer followed the
+# netlist through every combinational cell, whatever the constraints said,
+# and never returned from the calibration ring.
 #
 # The real clocking of the core is described in ffmeta.sdc, which is used for
 # sign-off timing analysis only.
 
 create_clock -name clk -period 20.0 [get_ports clk]
-
-# clk_sel = 3: clock root off
-set_case_analysis 1 [get_pins {*u_clk_mux.mx_cell/S0}]
-set_case_analysis 1 [get_pins {*u_clk_mux.mx_cell/S1}]
-# dat_sel = 0: data from ui_in[6]
-set_case_analysis 0 [get_pins {*u_dat_mux.mx_cell/S0}]
-set_case_analysis 0 [get_pins {*u_dat_mux.mx_cell/S1}]
 
 set_clock_uncertainty 0.25 [get_clocks clk]
 set_clock_transition 0.15 [get_clocks clk]

@@ -123,13 +123,13 @@ endmodule
 
 // ------------------------------------------------------------------------
 module ffm_core (
-    input  wire       clk_ext,    // external reference clock
+    input  wire       clk_ext,    // reference clock / 2 (from a flip-flop)
     input  wire       ext_async,  // external asynchronous input
     input  wire       rod_div,    // RO_D divided by two (divider lives outside)
-    input  wire [1:0] clk_sel,    // 0 clk_ext, 1 RO_C, 2 ext_async, 3 off
+    input  wire [1:0] clk_sel,    // 0 clk / 2, 1 RO_C, 2 ext_async, 3 off
     input  wire [1:0] roc_len,    // RO_C length: 0 = 75 stages ... 3 = 31 stages
     input  wire       roc_en,
-    input  wire [1:0] dat_sel,    // 0 ext_async, 1 RO_D, 2 RO_D/2, 3 clk_ext
+    input  wire [1:0] dat_sel,    // 0 ext_async, 1 RO_D, 2 RO_D/2, 3 clk / 2
     input  wire       rod_len,    // RO_D length: 0 = 67 stages, 1 = 47 stages
     input  wire       rod_en,
     input  wire       ring_en,    // close the coarse line into a ring
