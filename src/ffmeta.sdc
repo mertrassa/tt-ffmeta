@@ -1,9 +1,10 @@
-# Timing constraints for tt_um_mertrassa_ffmeta.
+# Sign-off timing constraints for tt_um_mertrassa_ffmeta.
 #
-# NOT YET RUN THROUGH LIBRELANE.  The pin patterns below assume the flattened
-# instance names that Yosys produces (mx_core.<instance>.mx_cell).  After the
-# first GDS run, open the STA log and confirm that all four clocks were
-# created; a "no pins matched" warning means a pattern needs adjusting.
+# Used for sign-off static timing analysis only (SIGNOFF_SDC_FILE).  Place and
+# route uses ffmeta_pnr.sdc, in which no clock enters the experiment core.
+# The pin patterns rely on the flattened instance names produced by Yosys
+# (mx_core.<instance>.mx_cell); the first hardening run confirmed that all
+# four clocks are found.
 #
 # Clocks
 #   clk    reference clock from the pad (crystal derived, <= 50 MHz)
@@ -44,6 +45,5 @@ set_false_path -from [get_ports {rst_n ena}]
 
 set_driving_cell -lib_cell sky130_fd_sc_hd__inv_2 -pin Y [all_inputs]
 set_load 0.033 [all_outputs]
-set_max_fanout 10 [current_design]
 set_timing_derate -early 0.95
 set_timing_derate -late  1.05

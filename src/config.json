@@ -1,8 +1,7 @@
 {
   "//": "Tiny Tapeout configuration for tt_um_mertrassa_ffmeta.",
-  "//": "Based on the ttsky-verilog-template defaults; the three entries marked",
-  "//": "'ffmeta' are additions and have NOT yet been exercised through LibreLane.",
-  "//": "Check the first GDS action run before trusting them (see README).",
+  "//": "Based on the ttsky-verilog-template defaults; the entries marked 'ffmeta'",
+  "//": "are additions.",
 
   "PL_TARGET_DENSITY_PCT": 60,
 
@@ -17,8 +16,9 @@
 
   "CLOCK_PORT": "clk",
 
-  "//": "ffmeta: clocks for the ring oscillators and the swept sampling clock.",
-  "PNR_SDC_FILE": "dir::ffmeta.sdc",
+  "//": "ffmeta: place and route sees only the reference clock, so that clock tree",
+  "//": "synthesis stays out of the experiment core; sign-off STA uses the real clocks.",
+  "PNR_SDC_FILE": "dir::ffmeta_pnr.sdc",
   "SIGNOFF_SDC_FILE": "dir::ffmeta.sdc",
 
   "//": "ffmeta: the experiment core is built from hand-placed library cells.",
