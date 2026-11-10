@@ -24,8 +24,8 @@ module ffm_counter #(
     input  wire         inc,    // count this cycle (synchronous to clk)
     output wire [W-1:0] q
 );
-    reg         g1, g2;
-    reg [W-1:0] c;
+    reg g1, g2;
+    reg c0;
 
     always @(posedge clk or posedge arst) begin
         if (arst) begin
@@ -38,20 +38,24 @@ module ffm_counter #(
     end
 
     always @(posedge clk or posedge arst) begin
-        if (arst)           c[0] <= 1'b0;
-        else if (g2 && inc) c[0] <= ~c[0];
+        if (arst)           c0 <= 1'b0;
+        else if (g2 && inc) c0 <= ~c0;
     end
+    assign q[0] = c0;
 
+    // Every ripple stage has its own clock, so each one is a separate scalar
+    // register (one vector written from several clock domains is rejected by
+    // the linter).
     genvar i;
     generate
         for (i = 1; i < W; i = i + 1) begin : g_r
-            wire rclk = ~c[i-1];
+            reg  r;
+            wire rclk = ~q[i-1];
             always @(posedge rclk or posedge arst) begin
-                if (arst) c[i] <= 1'b0;
-                else      c[i] <= ~c[i];
+                if (arst) r <= 1'b0;
+                else      r <= ~r;
             end
+            assign q[i] = r;
         end
     endgenerate
-
-    assign q = c;
 endmodule
