@@ -31,42 +31,94 @@
 /* verilator lint_off UNOPTFLAT */
 
 // ------------------------------------------------------------------------
-// Ring oscillator: NAND enable + (N-1) inverters, four selectable lengths.
-// Every tap index must be odd so that the loop has an odd number of inversions.
+// Chain of N inverters (N >= 0), built by halving so that instance names stay
+// short.  Deliberately no vectors and no references into generate blocks:
+// wide vector nets are slow in event-driven simulators, and hierarchical
+// generate references are not accepted alike by all synthesis tools.
+module ffm_invchain #(
+    parameter integer N       = 1,
+    parameter integer JIT_PPM = 0
+) (
+    input  wire a,
+    output wire y
+);
+    generate
+        if (N <= 0) begin : g_none
+            assign y = a;
+        end else if (N == 1) begin : g_one
+            ffm_inv #(.DRIVE(1), .JIT_PPM(JIT_PPM)) u_i (.A(a), .Y(y));
+        end else begin : g_split
+            wire m;
+            ffm_invchain #(.N(N / 2),     .JIT_PPM(JIT_PPM)) u_lo (.a(a), .y(m));
+            ffm_invchain #(.N(N - N / 2), .JIT_PPM(JIT_PPM)) u_hi (.a(m), .y(y));
+        end
+    endgenerate
+endmodule
+
+// ------------------------------------------------------------------------
+// Ring oscillator: NAND enable followed by four inverter segments of L0..L3
+// stages; the feedback is taken after segment 4, 3, 2 or 1 (len = 0..3).
+// 1 + L0, 1 + L0 + L1, ... must all be odd.
 module ffm_ro #(
-    parameter integer N  = 75,
-    parameter integer T0 = 75,
-    parameter integer T1 = 55,
-    parameter integer T2 = 41,
-    parameter integer T3 = 31
+    parameter integer L0 = 30,
+    parameter integer L1 = 10,
+    parameter integer L2 = 14,
+    parameter integer L3 = 20
 ) (
     input  wire       en,
     input  wire [1:0] len,
     output wire       out
 );
-    // Stage outputs are scalar nets local to each generate block (g_s[i].y):
-    // one wide vector net would make event-driven simulators re-evaluate
-    // every stage on every edge.
-    wire fb;
+    wire fb, n0, p1, p2, p3, p4;
 
-    genvar i;
-    generate
-        for (i = 0; i < N; i = i + 1) begin : g_s
-            wire y;
-            if (i == 0) begin : g_first
-                ffm_nand2 u_en (.A(en), .B(fb), .Y(y));
-            end else begin : g_inv
-                ffm_inv #(.DRIVE(1), .JIT_PPM(30000)) u_i (.A(g_s[i-1].y), .Y(y));
-            end
-        end
-    endgenerate
-
+    ffm_nand2 u_en (.A(en), .B(fb), .Y(n0));
+    ffm_invchain #(.N(L0), .JIT_PPM(30000)) u_s0 (.a(n0), .y(p1));
+    ffm_invchain #(.N(L1), .JIT_PPM(30000)) u_s1 (.a(p1), .y(p2));
+    ffm_invchain #(.N(L2), .JIT_PPM(30000)) u_s2 (.a(p2), .y(p3));
+    ffm_invchain #(.N(L3), .JIT_PPM(30000)) u_s3 (.a(p3), .y(p4));
     ffm_mux4 u_len (
-        .A0(g_s[T0-1].y), .A1(g_s[T1-1].y), .A2(g_s[T2-1].y), .A3(g_s[T3-1].y),
+        .A0(p4), .A1(p3), .A2(p2), .A3(p1),
         .S0(len[0]), .S1(len[1]), .X(fb)
     );
 
     assign out = fb;
+endmodule
+
+// ------------------------------------------------------------------------
+// Four consecutive taps of a delay line with their multiplexer.  A tap is a
+// pair of inverters.  Tap 0 is the input; nxt is the input of the next
+// segment (one more pair after tap 3).
+module ffm_seg4 #(
+    parameter integer LAST    = 0,   // 1: last segment, no pair after tap 3
+    parameter integer DRIVE_B = 1,   // drive strength of the second inverter
+    parameter integer TA_PS   = 55,  // sim: delay of the first inverter
+    parameter integer TB_PS   = 55   // sim: delay of the second inverter
+) (
+    input  wire in,
+    input  wire s0,
+    input  wire s1,
+    output wire x,
+    output wire nxt
+);
+    wire m1, t1, m2, t2, m3, t3;
+
+    ffm_inv #(.DRIVE(1),       .T_PS(TA_PS)) u_a1 (.A(in), .Y(m1));
+    ffm_inv #(.DRIVE(DRIVE_B), .T_PS(TB_PS)) u_b1 (.A(m1), .Y(t1));
+    ffm_inv #(.DRIVE(1),       .T_PS(TA_PS)) u_a2 (.A(t1), .Y(m2));
+    ffm_inv #(.DRIVE(DRIVE_B), .T_PS(TB_PS)) u_b2 (.A(m2), .Y(t2));
+    ffm_inv #(.DRIVE(1),       .T_PS(TA_PS)) u_a3 (.A(t2), .Y(m3));
+    ffm_inv #(.DRIVE(DRIVE_B), .T_PS(TB_PS)) u_b3 (.A(m3), .Y(t3));
+    generate
+        if (LAST != 0) begin : g_last
+            assign nxt = 1'b0;
+        end else begin : g_next
+            wire m4;
+            ffm_inv #(.DRIVE(1),       .T_PS(TA_PS)) u_a4 (.A(t3), .Y(m4));
+            ffm_inv #(.DRIVE(DRIVE_B), .T_PS(TB_PS)) u_b4 (.A(m4), .Y(nxt));
+        end
+    endgenerate
+
+    ffm_mux4 u_m (.A0(in), .A1(t1), .A2(t2), .A3(t3), .S0(s0), .S1(s1), .X(x));
 endmodule
 
 // ------------------------------------------------------------------------
@@ -96,10 +148,10 @@ module ffm_core (
 
     // ------------------------------------------------------------ sources
     wire roc;
-    ffm_ro #(.N(75), .T0(75), .T1(55), .T2(41), .T3(31)) u_roc (
+    ffm_ro #(.L0(30), .L1(10), .L2(14), .L3(20)) u_roc (   // 75 / 55 / 41 / 31 stages
         .en(roc_en), .len(roc_len), .out(roc)
     );
-    ffm_ro #(.N(67), .T0(67), .T1(47), .T2(67), .T3(47)) u_rod (
+    ffm_ro #(.L0(46), .L1(0), .L2(0), .L3(20)) u_rod (     // 67 / 47 stages
         .en(rod_en), .len({1'b0, rod_len}), .out(rod)
     );
 
@@ -118,60 +170,32 @@ module ffm_core (
     // ------------------------------------- vernier line (DUT clock branch)
     // Structure mirrors the coarse branch (mux2 -> line -> mux4 -> mux4 ->
     // mux2) so that t(k = 0, j = 0) is close to zero.
-    // Tap 0 is v0, tap n (n > 0) is g_v[n-1].y.
-    wire v0, vm0, vm1, vm2, vd;
+    // Vernier pair: inv_1 driving inv_4, a different unit delay from the
+    // coarse pair so that the (k, j) combinations interleave.
+    wire v0, v4, v_nc, vm0, vm1, vm2, vd;
 
     ffm_mux2 u_v_in (.A0(root), .A1(1'b0), .S(1'b0), .X(v0));
-    generate
-        for (i = 0; i < 7; i = i + 1) begin : g_v
-            wire mid, y;
-            if (i == 0) begin : g_a
-                ffm_inv #(.DRIVE(1), .T_PS(95)) u_a (.A(v0), .Y(mid));
-            end else begin : g_a
-                ffm_inv #(.DRIVE(1), .T_PS(95)) u_a (.A(g_v[i-1].y), .Y(mid));
-            end
-            ffm_inv #(.DRIVE(4), .T_PS(50)) u_b (.A(mid), .Y(y));
-        end
-    endgenerate
-    ffm_mux4 u_v_m0 (
-        .A0(v0), .A1(g_v[0].y), .A2(g_v[1].y), .A3(g_v[2].y),
-        .S0(j[0]), .S1(j[1]), .X(vm0)
+    ffm_seg4 #(.DRIVE_B(4), .TA_PS(95), .TB_PS(50)) u_v_s0 (
+        .in(v0), .s0(j[0]), .s1(j[1]), .x(vm0), .nxt(v4)
     );
-    ffm_mux4 u_v_m1 (
-        .A0(g_v[3].y), .A1(g_v[4].y), .A2(g_v[5].y), .A3(g_v[6].y),
-        .S0(j[0]), .S1(j[1]), .X(vm1)
+    ffm_seg4 #(.LAST(1), .DRIVE_B(4), .TA_PS(95), .TB_PS(50)) u_v_s1 (
+        .in(v4), .s0(j[0]), .s1(j[1]), .x(vm1), .nxt(v_nc)
     );
     ffm_mux4 u_v_m2 (.A0(vm0), .A1(vm1), .A2(vm0), .A3(vm1), .S0(j[2]), .S1(1'b0), .X(vm2));
     ffm_mux2 u_v_m3 (.A0(vm2), .A1(1'b0), .S(1'b0), .X(vd));
 
     // ------------------------------- coarse line (early sampling clock branch)
-    // Tap 0 is c0, tap n (n > 0) is g_c[n-1].y.
-    wire       c0, cq0, cq1, ve, ring_fb;
+    // Eight segments of four taps; cl[m] is tap 4m.
+    wire [8:0] cl;
     wire [7:0] cm;
+    wire       cq0, cq1, ve, ring_fb;
 
-    ffm_mux2 u_c_in (.A0(root), .A1(ring_fb), .S(ring_en), .X(c0));
+    ffm_mux2 u_c_in (.A0(root), .A1(ring_fb), .S(ring_en), .X(cl[0]));
     generate
-        for (i = 0; i < 31; i = i + 1) begin : g_c
-            wire mid, y;
-            if (i == 0) begin : g_a
-                ffm_inv #(.DRIVE(1)) u_a (.A(c0), .Y(mid));
-            end else begin : g_a
-                ffm_inv #(.DRIVE(1)) u_a (.A(g_c[i-1].y), .Y(mid));
-            end
-            ffm_inv #(.DRIVE(1)) u_b (.A(mid), .Y(y));
-        end
-        for (i = 0; i < 8; i = i + 1) begin : g_cm
-            if (i == 0) begin : g_m
-                ffm_mux4 u_m (
-                    .A0(c0), .A1(g_c[0].y), .A2(g_c[1].y), .A3(g_c[2].y),
-                    .S0(k[0]), .S1(k[1]), .X(cm[i])
-                );
-            end else begin : g_m
-                ffm_mux4 u_m (
-                    .A0(g_c[4*i-1].y), .A1(g_c[4*i].y), .A2(g_c[4*i+1].y), .A3(g_c[4*i+2].y),
-                    .S0(k[0]), .S1(k[1]), .X(cm[i])
-                );
-            end
+        for (i = 0; i < 8; i = i + 1) begin : g_c
+            ffm_seg4 #(.LAST(i == 7 ? 1 : 0)) u_s (
+                .in(cl[i]), .s0(k[0]), .s1(k[1]), .x(cm[i]), .nxt(cl[i+1])
+            );
         end
     endgenerate
     ffm_mux4 u_c_q0 (.A0(cm[0]), .A1(cm[1]), .A2(cm[2]), .A3(cm[3]), .S0(k[2]), .S1(k[3]), .X(cq0));
@@ -204,6 +228,8 @@ module ffm_core (
     ffm_dff #(.KIND(0)) u_xb  (.CLK(ce),  .D(d),  .Q(xb));
     ffm_dff #(.KIND(0)) u_xa2 (.CLK(cpn), .D(xa), .Q(xa2));
     ffm_dff #(.KIND(0)) u_xb2 (.CLK(cpn), .D(xb), .Q(xb2));
+
+    wire _unused = &{v_nc, cl[8], 1'b0};
 
 endmodule
 
