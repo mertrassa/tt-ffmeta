@@ -61,11 +61,43 @@ handle them.
 
 ## Submit to Tiny Tapeout
 
-The repository was created from
-[TinyTapeout/ttsky-verilog-template](https://github.com/TinyTapeout/ttsky-verilog-template);
-the `gds`, `test` and `docs` GitHub actions run on every push. When they are green, submit
-the repository at [app.tinytapeout.com](https://app.tinytapeout.com) (the repository must
-be public at that point).
+The repository [mertrassa/tt-ffmeta](https://github.com/mertrassa/tt-ffmeta) was created
+from [TinyTapeout/ttsky-verilog-template](https://github.com/TinyTapeout/ttsky-verilog-template)
+(workflows pinned to the `ttsky26d` shuttle); the `gds`, `test` and `docs` actions run on
+every push. It is private for now. To submit:
+
+1. Make the repository public and enable GitHub Pages (Settings -> Pages -> Source:
+   GitHub Actions). The `viewer` job of the `gds` action fails until Pages is enabled;
+   everything else is green.
+2. Submit the repository at [app.tinytapeout.com](https://app.tinytapeout.com).
+
+## Hardening notes
+
+The experiment core (`mx_core`) is built from hand-instantiated cells that the tools must
+leave alone. Three things make that work; all three were found the hard way:
+
+- `RSZ_DONT_TOUCH_RX` keeps the resizer out of `mx_core` and off `clk_core`.
+- Clock tree synthesis ignores that list, so place and route uses `src/ffmeta_pnr.sdc`,
+  which declares only the reference clock. `src/ffmeta.sdc`, with the four real clocks, is
+  used for sign-off timing only.
+- CTS also follows the `clk` net through every combinational cell regardless of
+  constraints (and does not terminate in the calibration ring), so the reference clock
+  enters the core only through a divide-by-two flip-flop.
+
+After every hardening run, check the result:
+
+```bash
+python analysis/check_netlist.py <runs/wokwi/final/nl/...nl.v>
+```
+
+confirms that no cell inside the core was resized or buffered, and
+
+```bash
+python analysis/layout_delays.py <...stapostpnr/nom_tt_025C_1v80/...sdf>
+```
+
+prints the post-layout oscillator periods and tap delays. Both files are in the `GDS_logs`
+artifact of the `gds` action.
 
 ## Status
 
@@ -73,15 +105,24 @@ Verified in simulation:
 
 - the RTL, the measurement protocol and the tau extraction (behavioural sweep recovers
   45.9, 60.6 and 73.5 ps for injected 45, 60 and 75 ps);
-- Yosys 0.33 synthesis: no warnings, all 282 hand-instantiated cells kept, flattened
-  instance names match the patterns in `src/ffmeta.sdc`;
-- `test/test.py` (cocotb 2.1) and the functional part of `test/tb_ffmeta.v` pass on the
-  RTL and on the Yosys netlist.
+- `test/test.py` (cocotb) and the functional part of `test/tb_ffmeta.v` on the RTL and on
+  a Yosys netlist.
 
-Not yet verified, check on the first GitHub Actions run:
+Verified by the Tiny Tapeout flow (GitHub Actions, LibreLane, sky130A):
 
-- Place and route. `src/config.json` additions and `src/ffmeta.sdc` have never been
-  through LibreLane. Confirm that the four clocks in the SDC are created, that nothing
-  inside `mx_core` was buffered or resized, and that timing and utilisation are clean.
-- The gate-level test with the real PDK cell models.
+- hardening, DRC, LVS, antenna check and the Tiny Tapeout precheck pass; utilisation 68 %;
+- the gate-level test with the PDK cell models passes;
+- the routed netlist has all 319 hand-instantiated core cells, unmodified, and no
+  tool-inserted cell on any net inside the core;
+- sign-off timing: no hold violations in any corner; setup met at the typical corner for
+  a 4 ns core clock (0.39 ns slack). At the slow corner the synchronous logic needs
+  5.4 ns, while the fastest ring-oscillator setting slows to about 8.4 ns there.
+
+Post-layout static-timing predictions (typical corner): RO_C 8.9 / 7.5 / 6.3 / 4.8 ns,
+RO_D 4.9 / 3.5 ns before division, coarse tap 93 ps (77 to 108), vernier tap 114 ps,
+coarse line 2.9 ns in total.
+
+Not yet verified:
+
 - `host/ffmeta_host.py` (MicroPython) has not been run on a board.
+- Nothing has been measured: every number above is simulation or static timing.

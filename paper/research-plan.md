@@ -80,9 +80,15 @@ Record supply voltage (measured at the board), temperature and chip id in every 
 
 ## 4. Expected numbers (planning only, not predictions)
 
-`analysis/ffmeta_mc.py` with tau = 60 ps, T_w = 30 ps, 157 MHz clock, 65 MHz data: a 1 s
-gate per point shows about 6 decades of the tail over about 175 delay settings and gives
-a statistical error on tau near 0.2 %. The measurement will therefore be limited by
+Post-layout static timing (typical corner, `analysis/layout_delays.py`): RO_C 8.9 / 7.5 /
+6.3 / 4.8 ns, RO_D 4.9 / 3.5 ns before division, coarse tap 93 ps (77 to 108), vernier tap
+114 ps, coarse line 2.9 ns in total. Use RO_C at 111 stages with RO_D / 4 (data half
+period about 9.9 ns): the half period must exceed the clock period, and half a clock
+period must cover the delay range in use.
+
+`analysis/ffmeta_mc.py` with those numbers and tau = 60 ps, T_w = 30 ps: a 1 s gate per
+point shows about 6 decades of the tail over about 180 delay settings and gives a
+statistical error on tau near 0.2 %. The measurement will therefore be limited by
 systematics, not by counting statistics. Budget them explicitly:
 
 - **Delay-line jitter and supply noise.** Jitter grows with the delay, so it can bias the
@@ -129,28 +135,28 @@ three chips before a journal submission.
 
 ## 7. Status and next steps
 
-Done and verified here:
+Done:
 - RTL (`src/`), behavioural simulation of the whole chip (`test/tb_ffmeta.v`): registers,
   counters, both ring oscillators, ring calibration, full metastability sweep.
 - Extraction (`analysis/ffmeta_fit.py`) recovers the tau injected into the behavioural
   model (45.9 / 60.6 / 73.5 ps for 45 / 60 / 75 ps) and into the Monte Carlo model; the
   twin-sampler and ring time bases agree to 0.9 % in that simulation.
-- Yosys synthesis is clean and keeps every hand-instantiated cell; the cocotb test and
-  the functional test bench pass on the RTL and on the Yosys netlist
-  (`test/run_synth_check.sh`).
+- Hardened through the Tiny Tapeout flow in the private repository `mertrassa/tt-ffmeta`
+  (`ttsky26d` workflows): DRC, LVS, antenna, precheck and gate-level test pass; the
+  routed netlist keeps all 319 hand-instantiated core cells untouched
+  (`analysis/check_netlist.py`); no hold violations in any corner, setup met at the
+  typical corner for a 4 ns core clock; utilisation 68 %.
 
 Not yet verified:
-- LibreLane place and route: `src/config.json` additions and `src/ffmeta.sdc` have not
-  been run. Check in the first GDS action run that (a) all four clocks are created,
-  (b) no buffers were inserted inside `mx_core`, (c) utilisation and timing are clean,
-  (d) the gate-level test with the real PDK models passes.
 - `host/ffmeta_host.py` (MicroPython) has not been run on a board.
+- Nothing has been measured. All numbers are simulation or static timing.
 
 Then:
-1. Create the repository from `TinyTapeout/ttsky-verilog-template`, copy this tree in,
-   rename the top module to include the GitHub user name, fill in the author.
-2. Iterate on the GDS action until clean; inspect the layout of the DUT block.
-3. Post-layout: extract clock arrival times at the DUT, sampler and twin clock pins.
-4. Run E5 (SPICE) while the chip is being fabricated, so predictions are on record
+1. Make the repository public, enable GitHub Pages, submit at app.tinytapeout.com
+   before the shuttle closes.
+2. Inspect the layout of the DUT block; extract clock and data arrival times at the DUT,
+   early-sampler and twin-sampler pins from the post-layout STA. That skew is the T_w0
+   uncertainty (`--skew-ps` in `ffmeta_fit.py`), and T_w0 is the headline claim.
+3. Run E5 (SPICE) while the chip is being fabricated, so predictions are on record
    before silicon arrives.
-5. On silicon: self-test, E4 controls first, then E1-E3.
+4. On silicon: self-test, E4 controls first, then E1-E3, E7 last.
