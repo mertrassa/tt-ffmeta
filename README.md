@@ -64,12 +64,8 @@ handle them.
 The repository [mertrassa/tt-ffmeta](https://github.com/mertrassa/tt-ffmeta) was created
 from [TinyTapeout/ttsky-verilog-template](https://github.com/TinyTapeout/ttsky-verilog-template)
 (workflows pinned to the `ttsky26d` shuttle); the `gds`, `test` and `docs` actions run on
-every push. It is private for now. To submit:
-
-1. Make the repository public and enable GitHub Pages (Settings -> Pages -> Source:
-   GitHub Actions). The `viewer` job of the `gds` action fails until Pages is enabled;
-   everything else is green.
-2. Submit the repository at [app.tinytapeout.com](https://app.tinytapeout.com).
+every push, and GitHub Pages (source: GitHub Actions) serves the layout viewer. Submit the
+repository at [app.tinytapeout.com](https://app.tinytapeout.com) once all actions are green.
 
 ## Hardening notes
 
