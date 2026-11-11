@@ -24,7 +24,9 @@
   "//": "ffmeta: the experiment core is built from hand-placed library cells.",
   "//": "The resizer must not buffer, resize or hold-fix anything inside it,",
   "//": "otherwise the delay lines and the DUT loads are no longer what the RTL says.",
-  "RSZ_DONT_TOUCH_RX": "^mx_core\\.",
+  "//": "clk_core is the core's clock output: place and route does not know it is",
+  "//": "a clock, and would split its fanout with an unbalanced buffer chain.",
+  "RSZ_DONT_TOUCH_RX": "^mx_core[.]|^clk_core$",
 
   "//": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
   "//": "!!! DO NOT CHANGE ANYTHING BELOW THIS POINT !!!",
