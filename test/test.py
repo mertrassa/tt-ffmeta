@@ -4,8 +4,16 @@
 #
 # Functional test only: registers, counters and event detection with the core
 # clocked from the reference clock / 2, so it also runs on the gate-level netlist
-# (unit delays, ring oscillators left disabled).  The timing experiment itself
-# is exercised by tb_ffmeta.v / run_sweep.sh with the behavioural cell models.
+# (ring oscillators left disabled).  The timing experiment itself is exercised
+# by tb_ffmeta.v / run_sweep.sh with the behavioural cell models.
+#
+# The gate-level test uses the PDK's functional models: flip-flops have a unit
+# delay, combinational cells none.  The delay lines are then zero-delay, the
+# early sampler always looks before the DUT output has moved, and every output
+# change counts as a late transition whatever the delay setting.  The one check
+# that needs a real sampling delay is therefore made on the RTL only.
+
+import os
 
 import cocotb
 from cocotb.clock import Clock
@@ -15,6 +23,8 @@ WR = 1 << 4
 GATE = 1 << 5
 EXT = 1 << 6
 CLEAR = 1 << 7
+
+GATE_LEVEL = os.environ.get("GATES") == "yes"
 
 
 class Host:
@@ -117,7 +127,10 @@ async def test_project(dut):
     await host.config(dut=3, k=31, ev0=0, ev1=3, a_sel=0)
     meta, cyc, a, ref = await host.measure(300, toggle_every=6)
     dut._log.info(f"k=31: meta={meta} cycles={cyc}")
-    assert meta == 0
+    if GATE_LEVEL:
+        assert 45 <= meta <= 55    # zero-delay lines: same as the plateau below
+    else:
+        assert meta == 0
     assert 146 <= cyc <= 154
 
     # With the DUT clock delayed instead (k = 0, j = 7) the early sampler

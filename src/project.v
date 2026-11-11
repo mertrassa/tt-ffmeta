@@ -93,8 +93,8 @@ module tt_um_mertrassa_ffmeta (
     wire       clk_core, clk_early, dat, rod;
     wire [7:0] l, e2;
     wire       xa2, xb2;
-    reg        rod_div;
-    reg        ref_div;
+    reg        rod_div2, rod_div4;
+    reg        ref_div, early_div;
 
     // reference clock / 2: the only way the reference enters the experiment
     always @(posedge clk or negedge rst_n) begin
@@ -105,7 +105,8 @@ module tt_um_mertrassa_ffmeta (
     ffm_core mx_core (
         .clk_ext  (ref_div),
         .ext_async(ext_async),
-        .rod_div  (rod_div),
+        .rod_div2 (rod_div2),
+        .rod_div4 (rod_div4),
         .clk_sel  (clk_sel),
         .roc_len  (roc_len),
         .roc_en   (roc_en),
@@ -125,10 +126,23 @@ module tt_um_mertrassa_ffmeta (
         .xb2      (xb2)
     );
 
-    // RO_D / 2: slower data with an exact 50 % duty cycle
+    // RO_D / 2 and RO_D / 4: slower data with an exact 50 % duty cycle.  The
+    // measurement needs a data half period longer than the DUT clock period,
+    // which (post-layout) only RO_D / 4 provides for every RO_C setting.
     always @(posedge rod or negedge rst_n) begin
-        if (!rst_n) rod_div <= 1'b0;
-        else        rod_div <= ~rod_div;
+        if (!rst_n) rod_div2 <= 1'b0;
+        else        rod_div2 <= ~rod_div2;
+    end
+    always @(posedge rod_div2 or negedge rst_n) begin
+        if (!rst_n) rod_div4 <= 1'b0;
+        else        rod_div4 <= ~rod_div4;
+    end
+
+    // The calibration ring runs at up to about 550 MHz (tap 0), faster than
+    // the counters are signed off for, so it is counted through a prescaler.
+    always @(posedge clk_early or negedge rst_n) begin
+        if (!rst_n) early_div <= 1'b0;
+        else        early_div <= ~early_div;
     end
 
     // -------------------------------------------------------- event detection
@@ -164,7 +178,7 @@ module tt_um_mertrassa_ffmeta (
     /* verilator lint_off UNOPTFLAT */
     wire a_clk = (a_sel == 2'd0) ? clk_core  :
                  (a_sel == 2'd1) ? dat       :
-                 (a_sel == 2'd2) ? clk_early : ref_div;
+                 (a_sel == 2'd2) ? early_div : ref_div;
     /* verilator lint_on UNOPTFLAT */
 
     ffm_counter #(.W(24)) u_ev0 (.clk(clk_core), .arst(arst), .gate(gate), .inc(inc0), .q(cnt_ev0));

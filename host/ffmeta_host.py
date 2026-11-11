@@ -160,8 +160,8 @@ class Chip:
         print("# selftest ok: ev0=%d a=%d ref=%d" % (ev0, a, ref))
 
 
-def run(chip, duts=range(8), max_gate_s=10.0, min_events=10000, roc_len=1, rod_len=0,
-        vdd=None, temp_c=None, chip_id=None):
+def run(chip, duts=range(8), max_gate_s=10.0, min_events=10000, roc_len=0, rod_len=0,
+        dat_sel=1, vdd=None, temp_c=None, chip_id=None):
     """Full characterisation run; prints records for analysis/ffmeta_fit.py."""
     print("# ffmeta host")
     print("# f_ref_hz=%d" % chip.f_ref)
@@ -171,18 +171,21 @@ def run(chip, duts=range(8), max_gate_s=10.0, min_events=10000, roc_len=1, rod_l
     chip.selftest()
 
     # deterministic calibration: coarse line as a ring, clock root off
+    # (the chip counts the ring through a divide-by-two prescaler)
     for k in range(32):
         chip.apply(k=k, j=0, ring=1, clk_sel=3, roc_en=0, rod_en=0, a_sel=A_EARLY)
         _, _, a, ref = chip.measure(min_events=1 << 30, max_gate_s=0.1)
         print("F,ring,%d,0,%d,%d" % (k, a, ref))
 
-    # RO_C as DUT clock; RO_D / 2 as data so that the data half period is
-    # longer than the clock period (every data edge captured exactly once)
-    chip.apply(k=0, j=0, ring=0, clk_sel=1, roc_len=roc_len, dat_sel=2, rod_len=rod_len,
+    # RO_C as DUT clock (default: 111 stages, about 8 ns, which leaves half a
+    # period for the whole delay range); RO_D / 4 as data so that the data
+    # half period (about 10 ns) is longer than the clock period and every
+    # data edge is captured exactly once
+    chip.apply(k=0, j=0, ring=0, clk_sel=1, roc_len=roc_len, dat_sel=dat_sel, rod_len=rod_len,
                roc_en=1, rod_en=1, ev0=EV_META, ev1=EV_CAL)
     for dut in duts:
         _, _, a, ref = chip.frequency(A_DATA)
-        print("F,data,2,%d,%d,%d" % (rod_len, a, ref))
+        print("F,data,%d,%d,%d,%d" % (dat_sel, rod_len, a, ref))
         _, _, a, ref = chip.frequency(A_CORE)
         print("F,core,%d,0,%d,%d" % (roc_len, a, ref))
         for j in range(8):

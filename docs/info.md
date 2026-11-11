@@ -72,10 +72,10 @@ high across one rising edge of `clk`.
 |-------|---------|
 | `ev0_sel`, `ev1_sel` | 0 late transition of the selected DUT, 1 twin samplers disagree, 2 DUT output changed, 3 every cycle |
 | `clk_sel` | DUT clock: 0 `clk / 2`, 1 RO_C, 2 `ui_in[6]`, 3 off |
-| `roc_len` | RO_C stages: 0 = 75, 1 = 55, 2 = 41, 3 = 31 |
-| `dat_sel` | data: 0 `ui_in[6]`, 1 RO_D, 2 RO_D / 2, 3 `clk / 2` |
-| `rod_len` | RO_D stages: 0 = 67, 1 = 47 |
-| `a_sel` | clock counted by `A`: 0 DUT clock, 1 data, 2 early clock / calibration ring, 3 `clk / 2` |
+| `roc_len` | RO_C stages: 0 = 111, 1 = 91, 2 = 75, 3 = 55 (about 8.0, 6.6, 5.5, 4.0 ns post-layout, typical) |
+| `dat_sel` | data: 0 `ui_in[6]`, 1 RO_D / 4, 2 RO_D / 2, 3 `clk / 2` |
+| `rod_len` | RO_D stages: 0 = 67, 1 = 47 (about 5.1, 3.7 ns before division) |
+| `a_sel` | clock counted by `A`: 0 DUT clock, 1 data, 2 early clock or calibration ring, divided by two, 3 `clk / 2` |
 | `ring_en` | close the coarse delay line into a ring |
 
 Change oscillator lengths, taps and `ring_en` only while the oscillators are disabled
@@ -90,8 +90,9 @@ circulating can leave it running in a harmonic mode.
    `GATE` high for a known time, then read `EV0`, `A` and `REF`: `REF` is the number of
    clock cycles in the gate, `EV0` and `A` are half of it (after reset the experiment
    runs from `clk / 2`).
-4. Enable the oscillators (`cfg3 = 0x03`), select RO_C as DUT clock and RO_D / 2 as data
-   (`cfg2 = 0x25`), select a DUT, `EV0` = late transitions and `EV1` = twin samplers
+4. Enable the oscillators (`cfg3 = 0x03`), select RO_C (111 stages) as DUT clock and
+   RO_D / 4 as data (`cfg2 = 0x11`; the data half period must be longer than the clock
+   period), select a DUT, `EV0` = late transitions and `EV1` = twin samplers
    (`cfg1 = 0x20 | dut`), then step `k` and `j` through `cfg0`, counting for 10 ms to 10 s
    per setting. `EV0 / A` falls exponentially with the delay obtained from `EV1 / A`.
 

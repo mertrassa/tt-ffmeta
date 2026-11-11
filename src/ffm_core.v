@@ -125,11 +125,12 @@ endmodule
 module ffm_core (
     input  wire       clk_ext,    // reference clock / 2 (from a flip-flop)
     input  wire       ext_async,  // external asynchronous input
-    input  wire       rod_div,    // RO_D divided by two (divider lives outside)
+    input  wire       rod_div2,   // RO_D / 2 (dividers live outside)
+    input  wire       rod_div4,   // RO_D / 4
     input  wire [1:0] clk_sel,    // 0 clk / 2, 1 RO_C, 2 ext_async, 3 off
-    input  wire [1:0] roc_len,    // RO_C length: 0 = 75 stages ... 3 = 31 stages
+    input  wire [1:0] roc_len,    // RO_C stages: 0 = 111, 1 = 91, 2 = 75, 3 = 55
     input  wire       roc_en,
-    input  wire [1:0] dat_sel,    // 0 ext_async, 1 RO_D, 2 RO_D/2, 3 clk / 2
+    input  wire [1:0] dat_sel,    // 0 ext_async, 1 RO_D/4, 2 RO_D/2, 3 clk / 2
     input  wire       rod_len,    // RO_D length: 0 = 67 stages, 1 = 47 stages
     input  wire       rod_en,
     input  wire       ring_en,    // close the coarse line into a ring
@@ -138,7 +139,7 @@ module ffm_core (
     output wire       clk_core,   // clock for the synthesised logic
     output wire       clk_early,  // early sampling clock / calibration ring
     output wire       dat,        // asynchronous data, for frequency counting
-    output wire       rod,        // raw RO_D output
+    output wire       rod,        // raw RO_D output (clocks the dividers)
     output wire [7:0] l,          // final DUT values       (CPn domain)
     output wire [7:0] e2,         // early samples          (CPn domain)
     output wire       xa2,        // twin sampler, DUT side (CPn domain)
@@ -148,7 +149,10 @@ module ffm_core (
 
     // ------------------------------------------------------------ sources
     wire roc;
-    ffm_ro #(.L0(30), .L1(10), .L2(14), .L3(20)) u_roc (   // 75 / 55 / 41 / 31 stages
+    // Post-layout static timing (typical corner): about 36 ps per stage, so
+    // 8.0 / 6.6 / 5.5 / 4.0 ns.  The slowest setting leaves half a period
+    // (4 ns) for the full 2.9 ns range of the coarse line.
+    ffm_ro #(.L0(54), .L1(20), .L2(16), .L3(20)) u_roc (   // 111 / 91 / 75 / 55 stages
         .en(roc_en), .len(roc_len), .out(roc)
     );
     ffm_ro #(.L0(46), .L1(0), .L2(0), .L3(20)) u_rod (     // 67 / 47 stages
@@ -161,7 +165,7 @@ module ffm_core (
         .S0(clk_sel[0]), .S1(clk_sel[1]), .X(root)
     );
     ffm_mux4 u_dat_mux (
-        .A0(ext_async), .A1(rod), .A2(rod_div), .A3(clk_ext),
+        .A0(ext_async), .A1(rod_div4), .A2(rod_div2), .A3(clk_ext),
         .S0(dat_sel[0]), .S1(dat_sel[1]), .X(dsrc)
     );
     ffm_clkbuf #(.DRIVE(4)) u_d_buf   (.A(dsrc), .X(d));    // 10 sampler D pins

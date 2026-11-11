@@ -6,12 +6,16 @@
 # (mx_core.<instance>.mx_cell); the first hardening run confirmed that all
 # four clocks are found.
 #
+# 4 ns is the period of the fastest RO_C setting (55 stages) at the typical
+# corner.  At the slow corner the synchronous logic misses 4 ns, but the
+# ring oscillator that clocks it slows down by the same factor.
+#
 # Clocks
 #   clk    reference clock from the pad (crystal derived, <= 50 MHz)
 #   core   root of the DUT clock: RO_C, clk / 2 or ui_in[6] behind a multiplexer
 #   early  swept sampling clock (output of the coarse delay line), also the
 #          calibration ring
-#   data   asynchronous data source: RO_D, RO_D/2, ui_in[6] or clk / 2
+#   data   asynchronous data source: RO_D/4, RO_D/2, ui_in[6] or clk / 2
 #
 # "early" is derived from "core" through the programmable delay line, but the
 # delay between them is exactly what the experiment sweeps, so the two are
@@ -22,9 +26,9 @@
 # timed normally.
 
 create_clock -name clk   -period 20.0 [get_ports clk]
-create_clock -name core  -period 5.0  [get_pins {*u_clk_mux.mx_cell/X}]
-create_clock -name early -period 5.0  [get_pins {*u_c_m3.mx_cell/X}]
-create_clock -name data  -period 5.0  [get_pins {*u_dat_mux.mx_cell/X}]
+create_clock -name core  -period 4.0  [get_pins {*u_clk_mux.mx_cell/X}]
+create_clock -name early -period 4.0  [get_pins {*u_c_m3.mx_cell/X}]
+create_clock -name data  -period 4.0  [get_pins {*u_dat_mux.mx_cell/X}]
 
 set_clock_groups -asynchronous \
     -group [get_clocks clk] \

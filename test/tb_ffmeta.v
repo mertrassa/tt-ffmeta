@@ -180,7 +180,7 @@ module tb_ffmeta;
             apply_cfg;
             measure(1000);
             $display("F,data,%0d,%0d,%0d,%0d", f_dat, f_rodlen, n_a, n_ref);
-            check(n_a > 1500 && n_a < 30000, "RO_D frequency plausible");
+            check(n_a > 1000 && n_a < 30000, "RO_D frequency plausible");
         end
 
         // ---- 4. deterministic calibration: coarse line as a ring
@@ -191,16 +191,17 @@ module tb_ffmeta;
             apply_cfg;
             measure(400);
             $display("F,ring,%0d,0,%0d,%0d", i, n_a, n_ref);
-            check(n_a > 2000 && n_a < 40000, "calibration ring frequency plausible");
+            check(n_a > 1000 && n_a < 40000, "calibration ring frequency plausible");
         end
         f_ring = 0; f_rocen = 1;
 
         // ---- 5. metastability sweep
-        // Clock: RO_C, 55 stages.  Data: RO_D / 2, so that the data half
+        // Clock: RO_C, 55 stages.  Data: RO_D / 2 (with the behavioural delays
+        // that is slow enough; on silicon use RO_D / 4), so that the data half
         // period exceeds the clock period: every data edge is then captured
         // exactly once and each capture changes the DUT output, which is the
         // condition under which  P(event) = T_w / H * exp(-t / tau)  holds.
-        f_clk = 1; f_roclen = 1; f_dat = 2; f_rodlen = 0; f_ev0 = 0; f_ev1 = 1;
+        f_clk = 1; f_roclen = 3; f_dat = 2; f_rodlen = 0; f_ev0 = 0; f_ev1 = 1;
         f_asel = 1; f_k = 0; f_j = 0;
         apply_cfg;
         measure(4000);

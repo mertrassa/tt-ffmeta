@@ -23,7 +23,7 @@ import sys
 
 PREFIX = "sky130_fd_sc_hd__"
 EXPECTED = {
-    "inv_1": 210, "inv_4": 7, "nand2_1": 2, "mux2_1": 4, "mux4_1": 17,
+    "inv_1": 246, "inv_4": 7, "nand2_1": 2, "mux2_1": 4, "mux4_1": 17,
     "clkbuf_1": 2, "clkbuf_4": 3, "clkbuf_8": 1, "clkinv_4": 1,
     "dfxtp_1": 30, "dfxtp_2": 1, "dfxtp_4": 1, "dfrtp_1": 1, "dfstp_1": 1,
     "dfbbp_1": 1, "sdfxtp_1": 1,

@@ -45,6 +45,9 @@ from collections import defaultdict
 
 import numpy as np
 
+# The chip counts the calibration ring through a divide-by-two prescaler.
+RING_PRESCALE = 2
+
 DUT_NAMES = {
     0: "dfxtp_1", 1: "dfxtp_2", 2: "dfxtp_4", 3: "dfrtp_1",
     4: "dfstp_1", 5: "dfbbp_1", 6: "sdfxtp_1", 7: "dfxtp_1 (b)",
@@ -73,7 +76,7 @@ def parse(path):
                 if f[1] == "data":
                     f_data = freq
                 elif f[1] == "ring":
-                    ring[int(f[2])] = freq
+                    ring[int(f[2])] = freq * RING_PRESCALE
             elif f[0] == "M" and len(f) == 8:
                 if f_data is None:
                     sys.exit("an 'F,data' record must precede the M records")
